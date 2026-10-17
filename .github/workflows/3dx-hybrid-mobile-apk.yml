@@ -18,11 +18,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify Android SDK from GitHub runner
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          which sdkmanager
+          sdkmanager --version
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Build APK
         working-directory: tools/3dx/android-hybrid-lite
         run: gradle --no-daemon --stacktrace :app:assembleDebug
