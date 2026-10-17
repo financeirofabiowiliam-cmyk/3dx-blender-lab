@@ -403,7 +403,6 @@ public sealed class HybridForm : Form
     {
         try { if (!closing && IsHandleCreated) BeginInvoke(action); }
         catch (InvalidOperationException) { }
-        catch (ObjectDisposedException) { }
     }
 
     private void Measure()
