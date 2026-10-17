@@ -24,10 +24,12 @@ jobs:
       - name: Verify Android SDK from GitHub runner
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME}"
-          which sdkmanager
-          sdkmanager --version
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+          SDKM="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKM" && test -x "$SDKM"
+          echo "Using Android SDK manager: $SDKM"
+          "$SDKM" --version
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install 'platforms;android-35' 'build-tools;35.0.0'
       - name: Build APK
         working-directory: tools/3dx/android-hybrid-lite
         run: gradle --no-daemon --stacktrace :app:assembleDebug
