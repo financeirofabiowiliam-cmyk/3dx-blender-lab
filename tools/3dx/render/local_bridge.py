@@ -179,7 +179,7 @@ class LocalBridge:
             prepared.append((ref["view"], normalized, image.width, image.height))
         with self.store.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT status,config FROM jobs WHERE id=?", (jid,)).fetchone()
+            row = db.execute("SELECT status,stage,config FROM jobs WHERE id=?", (jid,)).fetchone()
             token = db.execute("SELECT lease_hash,deadline FROM local_leases WHERE job_id=?", (jid,)).fetchone()
             if (row is None or row["status"] != "local_processing" or token is None
                     or not hmac.compare_digest(token["lease_hash"], hashlib.sha256(secret.encode()).hexdigest())
