@@ -1,6 +1,12 @@
 name: 3DX - Testes Blender
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/3dx-blender-ci.yml'
+      - 'scripts/**'
+      - 'tests/**'
   workflow_dispatch:
     inputs:
       style:
