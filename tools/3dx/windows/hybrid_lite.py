@@ -189,16 +189,28 @@ def main():
     print("3DX HYBRID LITE — computador auxiliar (sem Blender)")
     print("Mesmo laboratório:", ORIGIN+"/studio")
     print("Deixe esta janela aberta; Ctrl+C encerra. Nenhuma porta será aberta.")
-    token=getpass.getpass("Chave de acesso 3DX (não aparece na tela): ").strip()
+    # GUI sends the secret through anonymous standard input, never process args.
+    managed = "--service-stdin" in sys.argv
+    token=(sys.stdin.readline() if managed else
+           getpass.getpass("Chave de acesso 3DX (não aparece na tela): ")).strip()
     if not token:
         print("Chave vazia; encerrando.")
         return 2
     cache=Path(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir())/"3DXHybridLite"/"pipeline"
+    def bounded_arg(name, default, low, high):
+        prefix = name + "="
+        value = next((item.split("=",1)[1] for item in sys.argv if item.startswith(prefix)), str(default))
+        try: numeric=int(value)
+        except ValueError: numeric=default
+        return min(high,max(low,numeric))
+    start_free = bounded_arg("--start-free", 950, 600, 2400)
+    stop_free = bounded_arg("--stop-free", 650, 360, start_free-100)
+    print("Limites de proteção: início",start_free,"MB livres; interrupção",stop_free,"MB livres.",flush=True)
     try:
         while True:
             free=available_ram()
-            if free is not None and free<950*MIB:
-                print("Pouca RAM disponível (menos de 950 MB). Aguardando...")
+            if free is not None and free<start_free*MIB:
+                print("Aguardando RAM:",free//MIB,"MB livres (mínimo",start_free,"MB).",flush=True)
                 time.sleep(20)
                 continue
             try:
@@ -207,7 +219,9 @@ def main():
                 if task:
                     print("Tarefa recebida. Analisando imagens no computador...")
                     try:
-                        analyze(token, task,cache)
+                        analyze(token, task,cache,
+                                start_free_mb=start_free, stop_free_mb=stop_free,
+                                on_progress=lambda text: print(text,flush=True))
                     except Exception as exc:
                         print("Análise local indisponível:",type(exc).__name__,str(exc)[:110])
                         try:
@@ -219,10 +233,14 @@ def main():
                 else:
                     time.sleep(IDLE_SECONDS)
             except HTTPError as exc:
-                if exc.code in (401,403):
-                    print("Chave inválida ou sem autorização. Encerrando.")
+                try:
+                    detail=json.loads(exc.read(4096)).get("error","")
+                except (ValueError,TypeError,OSError):
+                    detail=""
+                print("Falha HTTP",exc.code,":",str(detail)[:180],flush=True)
+                if exc.code in (400,401,403,404,409,415,422):
+                    print("Falha de API persistente; corrigir configuração antes de reconectar.",flush=True)
                     return 3
-                print("Render temporariamente indisponível (HTTP %s)." % exc.code)
                 time.sleep(18)
             except (URLError,TimeoutError,OSError,ValueError) as exc:
                 print("Conexão indisponível; nova tentativa em alguns segundos.")
