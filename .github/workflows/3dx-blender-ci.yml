@@ -1,0 +1,60 @@
+name: 3DX - Testes Blender
+
+on:
+  workflow_dispatch:
+    inputs:
+      style:
+        description: 'Estilo sintetico para teste de exportacao'
+        type: choice
+        required: true
+        default: semi_realistic
+        options:
+          - anime
+          - semi_realistic
+          - realistic
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 3dx-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blender-integration:
+    name: Gerar e validar GLB + BLEND
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      STYLE: ${{ github.event.inputs.style || 'semi_realistic' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar Blender do Ubuntu
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends blender
+          blender --version | head -n 2
+      - name: Validar contratos
+        run: python3 -m unittest discover -s tests -v
+      - name: Gerar personagem 3D sintetico
+        run: |
+          mkdir -p dist
+          blender --background -t 2 --factory-startup --disable-autoexec --python-exit-code 1 \
+            --python scripts/generate_blender_smoke.py -- \
+            --style "$STYLE" --output-dir dist
+      - name: Verificar exportacao GLB
+        run: |
+          python3 scripts/verify_glb.py dist/3dx-character.glb --report dist/3dx-validation.json
+          ls -lh dist
+      - name: Guardar artefatos de desenvolvimento
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3dx-blender-smoke-${{ github.run_number }}
+          path: |
+            dist/3dx-character.glb
+            dist/3dx-character.blend
+            dist/3dx-validation.json
+            dist/3dx-generator-report.json
+          if-no-files-found: error
+          retention-days: 1
