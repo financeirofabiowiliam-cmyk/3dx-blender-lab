@@ -1,0 +1,47 @@
+name: Build 3DX Hybrid Lite 2 Windows GUI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/3dx/windows/**'
+      - '.github/workflows/build-3dx-windows-gui.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-gui:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Install free build tools
+        shell: pwsh
+        run: python -m pip install pyinstaller numpy pillow
+      - name: Syntax check
+        shell: pwsh
+        working-directory: tools/3dx/windows
+        run: python -m py_compile hybrid_lite.py hybrid_gui.py
+      - name: Build Windows GUI executable
+        shell: pwsh
+        working-directory: tools/3dx/windows
+        run: pyinstaller --clean --noconfirm --onefile --windowed --name 3DX-Hybrid-Lite-2 --hidden-import=hybrid_lite hybrid_gui.py
+      - name: Create user installer bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item tools/3dx/windows/dist/3DX-Hybrid-Lite-2.exe package/
+          Copy-Item tools/3dx/windows/hybrid_lite.py package/
+          Copy-Item tools/3dx/windows/hybrid_gui.py package/
+          Copy-Item tools/3dx/windows/iniciar_3dx_windows.cmd package/
+          Copy-Item tools/3dx/windows/README-GUI.md package/
+          Compress-Archive -Path package/* -DestinationPath 3DX-Hybrid-Lite-2-Windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3DX-Hybrid-Lite-2-Windows
+          path: 3DX-Hybrid-Lite-2-Windows.zip
+          retention-days: 14
+          if-no-files-found: error
